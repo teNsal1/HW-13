@@ -117,6 +117,7 @@ class ChatFacade:
         self.text_strategy = TextRequestStrategy(api_key)
         self.image_strategy = ImageRequestStrategy(api_key)
         self.current_strategy = self.text_strategy  # Стратегия по умолчанию
+        self.history: List[Tuple[str, dict]] = []  # Добавляем историю
         self.models = {
             "text": ["mistral-large-latest", "mistral-small-latest"],
             "image": ["pixtral-12b-2409"]
@@ -172,16 +173,38 @@ class ChatFacade:
         Returns:
             Ответ API
         """
-        # Пока без истории
+        # Получаем историю в формате для API
+        api_history = []
+        for question, response in self.history:
+            api_history.append({"role": "user", "content": question})
+            # Улучшенная обработка ответа
+            assistant_content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
+            api_history.append({
+                "role": "assistant",
+                "content": assistant_content
+            })
+        
+        # Выполняем запрос через текущую стратегию
         response = self.current_strategy.execute(
             text=text,
             model=model,
-            history=None,
+            history=api_history,
             image_path=image_path
         )
+        
+        # Сохраняем в историю
+        self.history.append((text, response))
         return response
 
+    def get_history(self) -> List[Tuple[str, dict]]:
+        """Возвращает историю запросов"""
+        return self.history
 
+    def clear_history(self) -> None:
+        """Очищает историю запросов"""
+        self.history.clear()
+
+# Пример использования с историей
 if __name__ == "__main__":
     api_key = os.getenv("MISTRAL_API_KEY", "")
     chat = ChatFacade(api_key)
@@ -201,3 +224,10 @@ if __name__ == "__main__":
         image_path="path/to/image.jpg"
     )
     print("Image response:", response)
+    
+    # Просмотр истории
+    print("History:", chat.get_history())
+    
+    # Очистка истории
+    chat.clear_history()
+    print("History after clear:", chat.get_history())
