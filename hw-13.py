@@ -205,15 +205,25 @@ class ChatFacade:
         self.history.clear()
 
 # Пример использования с историей
+# ... (весь предыдущий код классов остается без изменений) ...
+
+# Пример использования с историей
 if __name__ == "__main__":
-    api_key = os.getenv("MISTRAL_API_KEY", "")
+    api_key = os.getenv("MISTRAL_API_KEY", "h6Ur3A82uj8KGfMeI5Wp9OPqML5jMlZJ")
     chat = ChatFacade(api_key)
     
     # Работа с текстовой стратегией
     chat.change_strategy("text")
     model = chat.select_model()
     response = chat.ask_question("Расскажи о последних новостях в IT", model)
-    print("Text response:", response)
+    
+    # Извлечение и вывод только текста ответа
+    if 'choices' in response and len(response['choices']) > 0:
+        content = response['choices'][0]['message']['content']
+        print("\nText response:")
+        print(content)
+    else:
+        print("Error:", response.get('error', 'Unknown error'))
     
     # Переключение на стратегию с изображениями
     chat.change_strategy("image")
@@ -221,13 +231,27 @@ if __name__ == "__main__":
     response = chat.ask_question(
         "Что изображено на картинке?",
         model,
-        image_path="path/to/image.jpg"
+        image_path="path/to/image.jpg"  # Замените на реальный путь
     )
-    print("Image response:", response)
     
-    # Просмотр истории
-    print("History:", chat.get_history())
+    # Извлечение и вывод только текста ответа
+    if 'choices' in response and len(response['choices']) > 0:
+        content = response['choices'][0]['message']['content']
+        print("\nImage response:")
+        print(content)
+    else:
+        print("Error:", response.get('error', 'Unknown error'))
+    
+    # Просмотр истории (только вопросы и ответы)
+    print("\nHistory:")
+    for i, (question, response) in enumerate(chat.get_history(), 1):
+        print(f"\n{i}. Question: {question}")
+        if 'choices' in response and len(response['choices']) > 0:
+            answer = response['choices'][0]['message']['content']
+            print(f"   Answer: {answer}")
+        else:
+            print(f"   Error: {response.get('error', 'Unknown error')}")
     
     # Очистка истории
     chat.clear_history()
-    print("History after clear:", chat.get_history())
+    print("\nHistory after clear:", chat.get_history())
