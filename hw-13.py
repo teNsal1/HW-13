@@ -109,3 +109,95 @@ class ImageRequestStrategy(RequestStrategy):
         except requests.exceptions.RequestException as e:
             logging.error(f"Image request error: {e}")
             return {"error": str(e)}
+
+class ChatFacade:
+    """Фасад для работы с Mistral API с поддержкой стратегий"""
+    def __init__(self, api_key: str) -> None:
+        self.api_key = api_key
+        self.text_strategy = TextRequestStrategy(api_key)
+        self.image_strategy = ImageRequestStrategy(api_key)
+        self.current_strategy = self.text_strategy  # Стратегия по умолчанию
+        self.models = {
+            "text": ["mistral-large-latest", "mistral-small-latest"],
+            "image": ["pixtral-12b-2409"]
+        }
+
+    def change_strategy(self, strategy_type: str) -> None:
+        """
+        Изменяет текущую стратегию выполнения запросов
+        
+        Args:
+            strategy_type: Тип стратегии ('text' или 'image')
+            
+        Raises:
+            ValueError: Если указан неизвестный тип стратегии
+        """
+        if strategy_type == "text":
+            self.current_strategy = self.text_strategy
+        elif strategy_type == "image":
+            self.current_strategy = self.image_strategy
+        else:
+            raise ValueError(f"Unknown strategy type: {strategy_type}")
+
+    def select_model(self) -> str:
+        """Выбирает модель, соответствующую текущей стратегии"""
+        strategy_type = "text" if self.current_strategy == self.text_strategy else "image"
+        available_models = self.models.get(strategy_type, [])
+        
+        if not available_models:
+            raise ValueError("No models available for current strategy")
+            
+        print(f"Available models for {strategy_type} strategy:")
+        for i, model in enumerate(available_models, 1):
+            print(f"{i}. {model}")
+            
+        while True:
+            try:
+                choice = int(input("Select model number: "))
+                if 1 <= choice <= len(available_models):
+                    return available_models[choice-1]
+                print("Invalid choice, try again")
+            except ValueError:
+                print("Please enter a number")
+
+    def ask_question(self, text: str, model: str, image_path: Optional[str] = None) -> dict:
+        """
+        Выполняет запрос с использованием текущей стратегии
+        
+        Args:
+            text: Текст запроса
+            model: Используемая модель
+            image_path: Путь к изображению (для стратегии изображений)
+            
+        Returns:
+            Ответ API
+        """
+        # Пока без истории
+        response = self.current_strategy.execute(
+            text=text,
+            model=model,
+            history=None,
+            image_path=image_path
+        )
+        return response
+
+
+if __name__ == "__main__":
+    api_key = os.getenv("MISTRAL_API_KEY", "")
+    chat = ChatFacade(api_key)
+    
+    # Работа с текстовой стратегией
+    chat.change_strategy("text")
+    model = chat.select_model()
+    response = chat.ask_question("Расскажи о последних новостях в IT", model)
+    print("Text response:", response)
+    
+    # Переключение на стратегию с изображениями
+    chat.change_strategy("image")
+    model = chat.select_model()
+    response = chat.ask_question(
+        "Что изображено на картинке?",
+        model,
+        image_path="path/to/image.jpg"
+    )
+    print("Image response:", response)
